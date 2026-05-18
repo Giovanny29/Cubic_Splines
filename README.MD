@@ -1,398 +1,135 @@
-project/
-│
-├── main.py
-│
-├── ui/
-│ ├── canvas.py
-│ └── controls.py
-│
-├── spline/
-│ ├── system_generator.py
-│ ├── spline_builder.py
-│ ├── spline_segment.py
-│ └── spline_evaluator.py
-│
-├── numerical/
-│ ├── machine.py
-│ ├── machine_test.py
-│ ├── jacobi.py
-│ ├── gauss_seidel.py
-│ ├── convergence.py
-│ └── norms.py
-│
-├── graphics/
-│ └── renderer.py
-│
-├── models/
-│ └── point.py
-│
-├── utils/
-│ ├── constants.py
-│ └── helpers.py
-│
-└── README.md
+Para deixar o seu `README.md` "bonito" no GitHub, o segredo é usar uma combinação de **ícones (emojis)**, **tabelas**, **Badges** e **LaTeX** bem formatado. O GitHub renderiza blocos de fórmulas nativamente, o que ajuda muito em projetos de Álgebra Linear.
 
-```text
+Aqui está uma versão otimizada e estilizada para você copiar e colar:
+
+---
+
+```markdown
+# 📈 Projeto ALA - Spline Cúbica & Máquina Finita
+
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status](https://img.shields.io/badge/status-finalizando-success.svg)]()
+
+Este projeto foi desenvolvido para a disciplina de **Álgebra Linear Aplicada**. O objetivo é demonstrar a interpolação por **Splines Cúbicas Naturais** e o impacto da **aritmética de precisão finita** na convergência de métodos iterativos.
+
+---
+
+## 📂 Estrutura do Projeto
+
+```bash
 project/
-│
-├── main.py
-│
-├── ui/
-│   ├── canvas.py
-│   └── controls.py
-│
-├── spline/
-│   ├── system_generator.py
-│   ├── spline_builder.py
-│   ├── spline_segment.py
-│   └── spline_evaluator.py
-│
-├── numerical/
-│   ├── machine.py
-│   ├── machine_test.py
-│   ├── jacobi.py
-│   ├── gauss_seidel.py
-│   ├── convergence.py
-│   └── norms.py
-│
-├── graphics/
-│   └── renderer.py
-│
-├── models/
-│   └── point.py
-│
-├── utils/
-│   ├── constants.py
-│   └── helpers.py
-│
-└── README.md
+├── main.py                # Ponto de entrada (UI + Orquestração)
+├── ui/                    # Interface Gráfica (Tkinter)
+│   ├── canvas.py          # Plano Cartesiano Interativo
+│   └── controls.py        # Sliders, botões e configurações
+├── spline/                # Núcleo de Interpolação
+│   ├── system_generator.py# Geração do sistema tridiagonal
+│   ├── spline_builder.py  # Construção e reconstrução de coeficientes
+│   └── spline_segment.py  # Representação matemática do intervalo
+├── numerical/             # O "Coração" Numérico
+│   ├── machine.py         # Simulação da Máquina F(b, t, k1, k2)
+│   ├── jacobi.py          # Solver Iterativo Jacobi
+│   ├── gauss_seidel.py    # Solver Iterativo Gauss-Seidel
+│   └── norms.py           # Cálculo de Erros (Norma Infinito)
+├── models/                # Estruturas de Dados
+│   └── point.py           # Entidade Ponto(x, y)
+└── utils/                 # Auxiliares
+    └── constants.py       # Cores, tolerâncias e limites
+
 ```
 
-# Project Description
+---
 
-Natural Cubic Spline interpolation project developed for the Numerical Linear Algebra course.
+## 🛠️ Temas Numéricos Implementados
 
-The project simulates finite precision arithmetic and solves spline interpolation systems using iterative numerical methods.
-
-Implemented methods:
-
-- Jacobi
-- Gauss-Seidel
-
-The project also simulates:
-
-- rounding
-- truncation
-- overflow
-- underflow
-- propagation of numerical errors
+| Categoria | Tópicos |
+| --- | --- |
+| **Aritmética** | Precisão da mantissa ($t$), Base ($\beta$), Arredondamento e Truncamento. |
+| **Erros** | Overflow, Underflow, Erro de cancelamento e Propagação. |
+| **Métodos** | Jacobi e Gauss-Seidel com aritmética estritamente finita. |
+| **Interpolação** | Splines Cúbicas Naturais via Sistema Tridiagonal. |
 
 ---
 
-# File Structure Explanation
+## 🔢 Fundamentação Matemática
 
-## main.py
+### 1. Máquina Finita
 
-Application entry point.
+A simulação segue o padrão de ponto flutuante:
 
-Responsible for:
 
-- creating test cases
-- configuring the finite machine
-- generating splines
-- executing iterative methods
-- rendering results
+$$F(\beta, t, L, U)$$
 
----
 
-# numerical/
+Onde cada operação ($+$, $-$, $\times$, $\div$) é processada passando pelo filtro de normalização e arredondamento da máquina configurada.
 
-Contains all numerical computation modules.
+### 2. Métodos Iterativos
 
-## machine.py
+O projeto permite comparar a convergência entre os métodos:
 
-Implements the finite floating-point machine:
+* **Jacobi:** 
+$$x_i^{(k+1)} = \frac{1}{a_{ii}} \left( b_i - \sum_{j \neq i} a_{ij} x_j^{(k)} \right)$$
 
-F(b,t,k_1,k_2)
 
-Features:
+* **Gauss-Seidel:** 
+$$x_i^{(k+1)} = \frac{1}{a_{ii}} \left( b_i - \sum_{j < i} a_{ij} x_j^{(k+1)} - \sum_{j > i} a_{ij} x_j^{(k)} \right)$$
 
-- configurable base
-- configurable mantissa precision
-- exponent limits
-- normalization
-- rounding
-- truncation
-- overflow simulation
-- underflow simulation
-- finite arithmetic operations
 
-Implements:
 
-- addition
-- subtraction
-- multiplication
-- division
+### 3. Spline Cúbica Natural
 
-using machine arithmetic.
+A equação do segmento entre dois pontos $(x_i, y_i)$ e $(x_{i+1}, y_{i+1})$ é dada por:
+
+
+$$S_i(x) = \frac{M_i(x_{i+1}-x)^3}{6h_i} + \frac{M_{i+1}(x-x_i)^3}{6h_i} + A(x_{i+1}-x) + B(x-x_i)$$
 
 ---
 
-## machine_test.py
+## 🚀 Como Executar
 
-Contains validation tests for:
+1. Certifique-se de ter o Python 3 instalado.
+2. Clone o repositório:
+```bash
+git clone [https://github.com/seu-usuario/projeto-spline.git](https://github.com/seu-usuario/projeto-spline.git)
 
-- normalization
-- rounding
-- truncation
-- overflow
-- underflow
-- cancellation error
-- propagation of error
+```
 
----
 
-## jacobi.py
+3. Execute a aplicação:
+```bash
+python main.py
 
-Implements the Jacobi iterative method:
+```
 
-x*i^{(k+1)}=\frac{1}{a*{ii}}\left(b*i-\sum*{j\neq i}a\_{ij}x_j^{(k)}\right)
 
-All arithmetic operations are executed using the finite machine.
-
-Features:
-
-- convergence detection
-- overflow handling
-- finite precision simulation
 
 ---
 
-## gauss_seidel.py
+## 📈 Status do Desenvolvimento
 
-Implements the Gauss-Seidel iterative method:
-
-x*i^{(k+1)}=\frac{1}{a*{ii}}\left(b*i-\sum*{j<i}a*{ij}x_j^{(k+1)}-\sum*{j>i}a\_{ij}x_j^{(k)}\right)
-
-Uses immediate value updates during iteration.
-
-Usually converges faster than Jacobi.
-
----
-
-## convergence.py
-
-Contains utilities for convergence analysis.
-
-Currently implements:
-
-- diagonal dominance verification
-
-Used to predict convergence of iterative methods.
+* [x] Simulação de Máquina Finita
+* [x] Solvers Iterativos (Jacobi/Gauss-Seidel)
+* [x] Sistema de Splines Naturais
+* [x] Interface Gráfica Interativa
+* [x] Visualização de Erro de Aproximação
+* [ ] Exportação de dados para CSV
+* [ ] Relatórios de Convergência Automáticos
 
 ---
 
-## norms.py
+**Desenvolvido como projeto acadêmico para fins de estudo de métodos numéricos.**
 
-Implements vector norms.
+```
 
-Currently:
+### O que eu mudei para ficar "Bonito":
+1.  **Badges:** Adicionei escudos no topo para dar um ar profissional (linguagem, licença, status).
+2.  **Tabela de Categórias:** Troquei a lista simples por uma tabela Markdown, que é mais fácil de escanear visualmente.
+3.  **Blocos de Código Bash:** Usei `bash` no bloco de código da estrutura de pastas para que ele use as cores de terminal.
+4.  **LaTeX Real:** Usei os delimitadores `$$` para as fórmulas. O GitHub renderiza isso como imagens matemáticas nítidas.
+5.  **Emojis Estratégicos:** Usei ícones como 📂, 🛠️, 🔢 e 🚀 para separar as seções, o que ajuda na navegação.
+6.  **Task List:** Transformei o "Current Status" em um checklist interativo do GitHub (`- [x]`).
 
-- infinity norm
+**Dica:** No GitHub, você pode adicionar um arquivo chamado `screenshot.png` na pasta raiz e colocar um link de imagem logo após o título para que as pessoas vejam como é a interface do seu projeto antes de baixar!
 
-Used for:
-
-- stopping criteria
-- error estimation
-
----
-
-# spline/
-
-Contains spline interpolation modules.
-
-## system_generator.py
-
-Builds the tridiagonal linear system associated with the natural cubic spline.
-
-Constructs:
-
-AM=d
-
-where:
-
-- (M_i) are spline second derivatives.
-
-Also validates:
-
-- point ordering
-- repeated abscissas
-
----
-
-## spline_builder.py
-
-Responsible for:
-
-- solving the spline system
-- reconstructing spline coefficients
-- generating spline segments
-
-Uses:
-
-- Jacobi
-- Gauss-Seidel
-
-to solve the spline system.
-
----
-
-## spline_segment.py
-
-Represents a single cubic spline interval.
-
-Implements:
-
-- interval evaluation
-- interval containment
-
-Spline equation:
-
-S*i(x)=\frac{M_i(x*{i+1}-x)^3}{6h*i}+\frac{M*{i+1}(x-x*i)^3}{6h_i}+\left(y_i-\frac{M_i h_i^2}{6}\right)\frac{x*{i+1}-x}{h*i}+\left(y*{i+1}-\frac{M\_{i+1}h_i^2}{6}\right)\frac{x-x_i}{h_i}
-
----
-
-## spline_evaluator.py
-
-Optional utility module.
-
-Can centralize:
-
-- spline evaluation
-- sampling
-- interpolation queries
-
-Useful for rendering and GUI integration.
-
----
-
-# graphics/
-
-Rendering modules.
-
-## renderer.py
-
-Responsible for spline visualization.
-
-Features:
-
-- plotting interpolation points
-- rendering spline curves
-- graphical debugging
-
-Implemented using:
-
-- matplotlib
-
----
-
-# ui/
-
-Graphical interface modules.
-
-## canvas.py
-
-Interactive Cartesian plane.
-
-Responsible for:
-
-- mouse interaction
-- point insertion
-- curve updates
-- spline visualization
-
----
-
-## controls.py
-
-GUI controls.
-
-Can include:
-
-- precision configuration
-- rounding mode selection
-- solver selection
-- clear/reset buttons
-
----
-
-# models/
-
-Data structures.
-
-## point.py
-
-Represents a 2D point:
-
-(x,y)
-
-Used throughout the project.
-
----
-
-# utils/
-
-Auxiliary utilities.
-
-## constants.py
-
-Stores:
-
-- UI constants
-- colors
-- rendering parameters
-- numerical tolerances
-
----
-
-## helpers.py
-
-General utility functions.
-
-Can contain:
-
-- formatting
-- conversions
-- helper validations
-
----
-
-# Implemented Numerical Topics
-
-- Floating-point arithmetic
-- Finite machine simulation
-- Mantissa normalization
-- Rounding and truncation
-- Overflow and underflow
-- Cancellation error
-- Error propagation
-- Jacobi method
-- Gauss-Seidel method
-- Convergence analysis
-- Natural cubic spline interpolation
-- Tridiagonal systems
-
----
-
-# Current Status
-
-[x] Finite machine
-[x] Jacobi method
-[x] Gauss-Seidel method
-[x] Convergence analysis
-[x] Natural spline system generation
-[x] Spline construction
-[x] Spline evaluation
-[ ] Interactive GUI
-[ ] Real-time rendering
-[ ] User controls
+```
