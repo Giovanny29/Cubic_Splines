@@ -2,7 +2,6 @@
 # 📈 Projeto ALA - Spline Cúbica & Máquina Finita
 
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status](https://img.shields.io/badge/status-finalizando-success.svg)]()
 
 Este projeto foi desenvolvido para a disciplina de **Álgebra Linear Aplicada**. O objetivo é demonstrar a interpolação por **Splines Cúbicas Naturais** e o impacto da **aritmética de precisão finita** na convergência de métodos iterativos.
