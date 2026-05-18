@@ -1,9 +1,3 @@
-Para deixar o seu `README.md` "bonito" no GitHub, o segredo é usar uma combinação de **ícones (emojis)**, **tabelas**, **Badges** e **LaTeX** bem formatado. O GitHub renderiza blocos de fórmulas nativamente, o que ajuda muito em projetos de Álgebra Linear.
-
-Aqui está uma versão otimizada e estilizada para você copiar e colar:
-
----
-
 ```markdown
 # 📈 Projeto ALA - Spline Cúbica & Máquina Finita
 
@@ -119,17 +113,3 @@ python main.py
 ---
 
 **Desenvolvido como projeto acadêmico para fins de estudo de métodos numéricos.**
-
-```
-
-### O que eu mudei para ficar "Bonito":
-1.  **Badges:** Adicionei escudos no topo para dar um ar profissional (linguagem, licença, status).
-2.  **Tabela de Categórias:** Troquei a lista simples por uma tabela Markdown, que é mais fácil de escanear visualmente.
-3.  **Blocos de Código Bash:** Usei `bash` no bloco de código da estrutura de pastas para que ele use as cores de terminal.
-4.  **LaTeX Real:** Usei os delimitadores `$$` para as fórmulas. O GitHub renderiza isso como imagens matemáticas nítidas.
-5.  **Emojis Estratégicos:** Usei ícones como 📂, 🛠️, 🔢 e 🚀 para separar as seções, o que ajuda na navegação.
-6.  **Task List:** Transformei o "Current Status" em um checklist interativo do GitHub (`- [x]`).
-
-**Dica:** No GitHub, você pode adicionar um arquivo chamado `screenshot.png` na pasta raiz e colocar um link de imagem logo após o título para que as pessoas vejam como é a interface do seu projeto antes de baixar!
-
-```
