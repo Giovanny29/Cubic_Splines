@@ -1,7 +1,14 @@
 from numerical.norms import infinity_norm
 
 
-def gauss_seidel(
+# =========================================================
+# GAUSS-SEIDEL FINITO (CORRIGIDO)
+# =========================================================
+
+from numerical.norms import infinity_norm
+
+
+def gauss_seidel_finite(
     A,
     b,
     machine,
@@ -10,102 +17,66 @@ def gauss_seidel(
     max_iter=100
 ):
 
+    if machine is None:
+        raise ValueError("Machine cannot be None in Gauss-Seidel")
+
     n = len(A)
 
+    # =====================================================
+    # CONSISTÊNCIA TOTAL NA MÁQUINA
+    # =====================================================
+
+    A = machine.matrix(A)
+    b = machine.vector(b)
+
     if x0 is None:
-        x0 = [0] * n
-
-    x = machine.vector(x0)
-
-    error = machine.fl(0)
+        x = [machine.fl(0) for _ in range(n)]
+    else:
+        x = machine.vector(x0)
 
     for iteration in range(max_iter):
 
-        try:
+        x_old = x.copy()
 
-            x_old = x.copy()
+        for i in range(n):
 
-            # =====================================================
-            # ITERAÇÃO GAUSS-SEIDEL
-            # =====================================================
+            sigma = machine.fl(0)
 
-            for i in range(n):
+            for j in range(n):
 
-                sigma = machine.fl(0)
-
-                for j in range(n):
-
-                    if i != j:
-
-                        product = machine.mul(
-                            A[i][j],
-                            x[j]
-                        )
-
-                        sigma = machine.add(
-                            sigma,
-                            product
-                        )
-
-                numerator = machine.sub(
-                    b[i],
-                    sigma
-                )
-
-                x[i] = machine.div(
-                    numerator,
-                    A[i][i]
-                )
-
-            # =====================================================
-            # ERRO
-            # =====================================================
-
-            diff = []
-
-            for i in range(n):
-
-                diff.append(
-                    machine.sub(
-                        x[i],
-                        x_old[i]
+                if i != j:
+                    sigma = machine.add(
+                        sigma,
+                        machine.mul(A[i][j], x[j])
                     )
-                )
 
-            error = infinity_norm(
-                diff,
-                machine
-            )
+            numerator = machine.sub(b[i], sigma)
 
-            # =====================================================
-            # CONVERGIU
-            # =====================================================
+            diag = A[i][i]
 
-            if error < tol:
+            if diag == 0:
+                raise ZeroDivisionError(f"Zero diagonal at row {i}")
 
-                return {
-                    "solution": x,
-                    "iterations": iteration + 1,
-                    "converged": True,
-                    "error": error
-                }
+            x[i] = machine.div(numerator, diag)
 
-        # =========================================================
-        # OVERFLOW / ERROS NUMÉRICOS
-        # =========================================================
+        # =================================================
+        # ERRO (CONSISTENTE COM MACHINE)
+        # =================================================
 
-        except Exception as e:
+        diff = [
+            machine.sub(x[i], x_old[i])
+            for i in range(n)
+        ]
 
+        error = infinity_norm(diff, machine)
+
+        if error < tol:
             return {
                 "solution": x,
                 "iterations": iteration + 1,
-                "converged": False,
-                "error": str(e)
+                "converged": True,
+                "error": error
             }
-
-    # =============================================================
-    # NÃO CONVERGIU
-    # =============================================================
 
     return {
         "solution": x,
@@ -113,3 +84,62 @@ def gauss_seidel(
         "converged": False,
         "error": error
     }
+
+
+# =========================================================
+# REFERÊNCIA (FLOAT PURO)
+# =========================================================
+
+def gauss_seidel_reference(
+    A,
+    b,
+    x0=None,
+    tol=1e-10,
+    max_iter=100
+):
+
+    n = len(A)
+
+    if x0 is None:
+        x = [0.0 for _ in range(n)]
+    else:
+        x = [float(v) for v in x0]
+
+    A = [[float(v) for v in row] for row in A]
+    b = [float(v) for v in b]
+
+    for iteration in range(max_iter):
+
+        x_old = x.copy()
+
+        for i in range(n):
+
+            sigma = 0.0
+
+            for j in range(n):
+
+                if i != j:
+                    sigma += A[i][j] * x[j]
+
+            x[i] = (b[i] - sigma) / A[i][i]
+
+        error = max(abs(x[i] - x_old[i]) for i in range(n))
+
+        if error < tol:
+            return {
+                "solution": x,
+                "iterations": iteration + 1,
+                "converged": True,
+                "error": error
+            }
+
+    return {
+        "solution": x,
+        "iterations": max_iter,
+        "converged": False,
+        "error": error
+    }
+
+
+# compatibilidade
+gauss_seidel = gauss_seidel_finite

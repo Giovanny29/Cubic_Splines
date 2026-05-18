@@ -1,27 +1,23 @@
 from models.point import Point
 
 
+# =====================================================
+# VALIDAÇÃO
+# =====================================================
+
 def validate_points(points):
 
     if len(points) < 3:
-        raise ValueError(
-            "At least 3 points are required"
-        )
+        raise ValueError("At least 3 points required for cubic spline")
 
-    xs = [p.x for p in points]
+    for i in range(len(points) - 1):
+        if points[i].x >= points[i + 1].x:
+            raise ValueError("Points must be strictly sorted by x")
 
-    if len(xs) != len(set(xs)):
-        raise ValueError(
-            "Repeated x coordinates are not allowed"
-        )
 
-    for i in range(len(xs) - 1):
-
-        if xs[i] >= xs[i + 1]:
-            raise ValueError(
-                "Points must be sorted by x"
-            )
-
+# =====================================================
+# h_i = x_{i+1} - x_i
+# =====================================================
 
 def compute_h(points):
 
@@ -29,40 +25,41 @@ def compute_h(points):
 
     for i in range(len(points) - 1):
 
-        h.append(
-            points[i + 1].x - points[i].x
-        )
+        hi = points[i + 1].x - points[i].x
+
+        if hi == 0:
+            raise ValueError("Invalid spline: duplicate x values")
+
+        h.append(hi)
 
     return h
 
+
+# =====================================================
+# SISTEMA DO SPLINE NATURAL (TRIDIAGONAL)
+# =====================================================
 
 def generate_natural_spline_system(points):
 
     validate_points(points)
 
     n = len(points) - 1
-
     h = compute_h(points)
 
     # =====================================================
-    # CASO:
-    # apenas 3 pontos
-    # sistema 1x1
+    # CASO MÍNIMO (3 pontos → 1 incógnita)
     # =====================================================
 
     if n == 2:
 
-        A = [[
-            2 * (h[0] + h[1])
-        ]]
+        A = [[2 * (h[0] + h[1])]]
 
-        d = [[
+        d = [
             6 * (
                 (points[2].y - points[1].y) / h[1]
-                -
-                (points[1].y - points[0].y) / h[0]
+                - (points[1].y - points[0].y) / h[0]
             )
-        ]]
+        ]
 
         return A, d
 
@@ -72,48 +69,35 @@ def generate_natural_spline_system(points):
 
     size = n - 1
 
-    A = [
-        [0 for _ in range(size)]
-        for _ in range(size)
-    ]
-
-    d = [0 for _ in range(size)]
+    A = [[0.0 for _ in range(size)] for _ in range(size)]
+    d = [0.0 for _ in range(size)]
 
     # =====================================================
-    # MONTA MATRIZ
+    # MONTAGEM TRIDIAGONAL
     # =====================================================
 
-    for i in range(1, n):
+    for i in range(size):
 
-        row = i - 1
+        k = i + 1
 
-        # diagonal inferior
-        if row > 0:
+        h_left = h[k - 1]
+        h_right = h[k]
 
-            A[row][row - 1] = h[i - 1]
+        # subdiagonal
+        if i > 0:
+            A[i][i - 1] = h_left
 
         # diagonal principal
-        A[row][row] = 2 * (
-            h[i - 1] + h[i]
-        )
+        A[i][i] = 2 * (h_left + h_right)
 
-        # diagonal superior
-        if row < size - 1:
-
-            A[row][row + 1] = h[i]
+        # superdiagonal
+        if i < size - 1:
+            A[i][i + 1] = h_right
 
         # vetor independente
-
-        term1 = (
-            (points[i + 1].y - points[i].y)
-            / h[i]
+        d[i] = 6 * (
+            (points[k + 1].y - points[k].y) / h_right
+            - (points[k].y - points[k - 1].y) / h_left
         )
-
-        term2 = (
-            (points[i].y - points[i - 1].y)
-            / h[i - 1]
-        )
-
-        d[row] = 6 * (term1 - term2)
 
     return A, d
