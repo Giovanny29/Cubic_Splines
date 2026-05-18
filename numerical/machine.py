@@ -40,9 +40,8 @@ class FiniteMachine:
     Modelo de máquina finita que simula aritmética de ponto flutuante:
         ±0.m1m2...mt × b^z
 
-    Permite simular com precisão o comportamento de sistemas numéricos com
-    mantissa limitada, capturando erros de arredondamento, truncamento,
-    cancellation, sobrefluxo (overflow) e subfluxo (underflow).
+    Mantém o armazenamento interno em Decimal (base 10), mas restringe os valores
+    e propaga os erros como se estivessem na base (b) com (t) dígitos de mantissa.
     """
 
     def __init__(
@@ -78,57 +77,23 @@ class FiniteMachine:
         self.overflow_count = 0
         self.underflow_count = 0
 
-        # Define uma precisão interna alta no módulo decimal para evitar que
-        # o interpretador Python introduza ruídos nos cálculos intermediários.
+        # Define uma precisão interna altíssima para o Python não gerar ruído próprio
         getcontext().prec = 100
 
-    # =====================================================
-    # CONVERSÃO INTERNA
-    # =====================================================
-
     def _to_decimal(self, value):
-        """
-        Converte com segurança qualquer entrada numérica para o tipo Decimal do Python.
-
-        Entrada:
-            value (int/float/str/Decimal): O valor que será convertido.
-        Saída:
-            Decimal: O valor perfeitamente tipado como Decimal.
-        """
+        """Converte entradas com segurança para Decimal."""
         if isinstance(value, Decimal):
             return value
         return Decimal(str(value))
 
-    # =====================================================
-    # FUNÇÃO PRINCIPAL: FL (floating machine)
-    # =====================================================
-
     def fl(self, value):
-        """
-        Aplica o operador fl(x), mapeando um número real contínuo para
-        o conjunto finito de valores representáveis por esta máquina.
-
-        Entrada:
-            value (int/float/str/Decimal): O valor numérico real de entrada.
-        Saída:
-            Decimal: O número representado e limitado sob as regras da máquina.
-        """
+        """Operador fl(x) da máquina."""
         return self.normalize(value)
-
-    # =====================================================
-    # NORMALIZAÇÃO E QUANTIZAÇÃO
-    # =====================================================
 
     def normalize(self, value):
         """
-        Realiza a normalização do número na forma ±0.m1m2...mt * b^z, aplica
-        a limitação de tamanho da mantissa (t), trata underflow/overflow e
-        retorna o valor computado final.
-
-        Entrada:
-            value (int/float/str/Decimal): O valor bruto a ser processado.
-        Saída:
-            Decimal: O número final estabilizado e normalizado pela máquina.
+        Normaliza, quantiza na base b com t dígitos, trata overflow/underflow
+        e retorna o valor resultante mapeado de volta em Decimal (base 10).
         """
         x = self._to_decimal(value)
 
@@ -142,9 +107,7 @@ class FiniteMachine:
         exponent = 0
         lower_bound = Decimal(1) / base
 
-        # -------------------------------------------------
-        # 1. Ajuste de Escala (Trazer mantissa para [1/b, 1) )
-        # -------------------------------------------------
+        # 1. Traz a escala para o intervalo de representação [1/b, 1)
         while x >= 1:
             x /= base
             exponent += 1
@@ -153,9 +116,7 @@ class FiniteMachine:
             x *= base
             exponent -= 1
 
-        # -------------------------------------------------
-        # 2. Verificação Prévia de Extremos (Overflow / Underflow)
-        # -------------------------------------------------
+        # 2. Verificação prévia de limites de expoente
         if exponent > self.exponent_max:
             self.overflow_count += 1
             raise OverflowMachineError(f"Overflow: exponent {exponent} > {self.exponent_max}")
@@ -164,33 +125,23 @@ class FiniteMachine:
             self.underflow_count += 1
             return Decimal(0)
 
-        # -------------------------------------------------
-        # 3. Quantização da Mantissa (Uso da base genérica b^-t)
-        # -------------------------------------------------
-        # Multiplicamos por b^t para transformar a parte fracionária relevante em inteiro
+        # 3. Quantização baseada nos t dígitos da base b
         shift = base ** self.precision
         x_shifted = x * shift
 
         if self.rounding == RoundingMode.TRUNCATE:
-            # Truncamento puro (descarta o que sobrou)
             x_shifted = x_shifted.quantize(Decimal('1'), rounding=ROUND_DOWN)
         else:
-            # Arredondamento padrão para o mais próximo
             x_shifted = x_shifted.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
 
-        # Devolvemos a mantissa para a escala original [1/b, 1)
         x = x_shifted / shift
 
-        # -------------------------------------------------
-        # 4. Renormalização (Caso o arredondamento empurre a mantissa para 1.0)
-        # -------------------------------------------------
+        # 4. Renormalização caso o arredondamento jogue a mantissa para 1.0
         while x >= 1:
             x /= base
             exponent += 1
 
-        # -------------------------------------------------
-        # 5. Validação Pós-Arredondamento
-        # -------------------------------------------------
+        # 5. Verificação final pós-arredondamento
         if exponent > self.exponent_max:
             self.overflow_count += 1
             raise OverflowMachineError("Overflow after rounding")
@@ -199,25 +150,11 @@ class FiniteMachine:
             self.underflow_count += 1
             return Decimal(0)
 
+        # Devolve o valor convertido de volta para a nossa escala decimal de trabalho
         return sign * x * (base ** exponent)
 
-    # =====================================================
-    # REPRESENTAÇÃO INTERNA
-    # =====================================================
-
     def machine_representation(self, value):
-        """
-        Extrai de forma explícita os componentes do número armazenado na máquina
-        para relatórios, depuração visual ou logs do sistema.
-
-        Entrada:
-            value (int/float/str/Decimal): O valor que deseja analisar.
-        Saída:
-            dict: Um dicionário contendo:
-                - "sign" (int): 1 para positivo, -1 para negativo, 0 para zero.
-                - "mantissa" (Decimal): O valor fracionário normalizado.
-                - "exponent" (int): O expoente z associado à base.
-        """
+        """Retorna o sinal, a mantissa e o expoente normalizados na base da máquina."""
         m = self.normalize(value)
 
         if m == 0:
@@ -249,119 +186,36 @@ class FiniteMachine:
     # =====================================================
 
     def add(self, a, b):
-        """
-        Soma dois números simulando a aritmética interna com arredondamento fl(a + b).
-
-        Entrada:
-            a, b (valores numéricos): Operandos da soma.
-        Saída:
-            Decimal: Resultado quantizado pela máquina.
-        """
         return self.fl(self._to_decimal(a) + self._to_decimal(b))
 
     def sub(self, a, b):
-        """
-        Subtrai dois números simulando a aritmética interna com arredondamento fl(a - b).
-
-        Entrada:
-            a, b (valores numéricos): Operandos da subtração (a - b).
-        Saída:
-            Decimal: Resultado quantizado pela máquina.
-        """
         return self.fl(self._to_decimal(a) - self._to_decimal(b))
 
     def mul(self, a, b):
-        """
-        Multiplica dois números simulando a aritmética interna com arredondamento fl(a * b).
-
-        Entrada:
-            a, b (valores numéricos): Operandos da multiplicação.
-        Saída:
-            Decimal: Resultado quantizado pela máquina.
-        """
         return self.fl(self._to_decimal(a) * self._to_decimal(b))
 
     def div(self, a, b):
-        """
-        Divide dois números simulando a aritmética interna com arredondamento fl(a / b).
-
-        Entrada:
-            a, b (valores numéricos): Dividendo (a) e Divisor (b).
-        Saída:
-            Decimal: Resultado quantizado pela máquina.
-        """
         if self._to_decimal(b) == 0:
             raise ZeroDivisionError("Division by zero inside FiniteMachine.")
         return self.fl(self._to_decimal(a) / self._to_decimal(b))
 
     def abs(self, x):
-        """
-        Calculo do valor absoluto estabilizado pelas regras da máquina fl(|x|).
-
-        Entrada:
-            x (valores numéricos): Número que terá o módulo extraído.
-        Saída:
-            Decimal: Módulo quantizado.
-        """
         return self.fl(abs(self._to_decimal(x)))
 
-    # =====================================================
-    # CONVERSÃO DE ESTRUTURAS DE DADOS
-    # =====================================================
-
     def vector(self, values):
-        """
-        Converte uma lista nativa do Python em um vetor onde todos os elementos
-        passaram pelo truncamento/arredondamento da máquina finita.
-
-        Entrada:
-            values (list): Lista de floats/ints originais.
-        Saída:
-            list[Decimal]: Lista modificada contendo os Decimais ajustados.
-        """
         return [self.fl(v) for v in values]
 
     def matrix(self, matrix):
-        """
-        Converte uma matriz bidimensional (lista de listas) em uma estrutura
-        onde cada célula individual respeita os limites da máquina finita.
-
-        Entrada:
-            matrix (list[list]): Matriz original de dados reais.
-        Saída:
-            list[list[Decimal]]: Matriz processada com dados quantizados.
-        """
         return [[self.fl(v) for v in row] for row in matrix]
 
-    # =====================================================
-    # MÉTRICAS E DEPURAÇÃO
-    # =====================================================
-
     def relative_error(self, real, approx):
-        """
-        Calcula o erro relativo exato entre um valor de referência real e o valor aproximado.
-
-        Entrada:
-            real (valores numéricos): Valor real analítico de controle.
-            approx (valores numéricos): Valor aproximado obtido pela máquina.
-        Saída:
-            Decimal: Erro relativo adimensional (|real - approx| / |real|).
-        """
         real = self._to_decimal(real)
         approx = self._to_decimal(approx)
-
         if real == 0:
             return Decimal(0)
-
         return abs(real - approx) / abs(real)
 
     def info(self):
-        """
-        Retorna o estado atual das variáveis de configuração e contadores da máquina.
-
-        Saída:
-            dict: Dicionário completo de telemetria da máquina virtual.
-        """
         return {
             "base": self.base,
             "precision": self.precision,
@@ -372,13 +226,37 @@ class FiniteMachine:
             "underflow_count": self.underflow_count
         }
 
-    def print_machine_number(self, value):
-        """
-        Exibe na tela a formatação científica exata com base na representação de máquina.
+    # =====================================================
+    # CONVERSÃO VISUAL DE DIGITOS PARA EXIBIÇÃO
+    # =====================================================
 
-        Entrada:
-            value (valores numéricos): O dado que será renderizado no terminal.
-        """
+    def _convert_mantissa_to_base_digits(self, mantissa_decimal):
+        """Converte a mantissa decimal interna para uma string com os dígitos reais da base b."""
+        digits = []
+        rem = mantissa_decimal
+        hex_chars = "0123456789ABCDEF"
+        
+        for _ in range(self.precision):
+            rem *= self.base
+            digit_value = int(rem)
+            
+            if self.base <= 16:
+                digits.append(hex_chars[digit_value])
+            else:
+                digits.append(f"({digit_value})")
+                
+            rem -= digit_value
+            
+        return "".join(digits)
+
+    def print_machine_number(self, value):
+        """Exibe o número com os dígitos reais correspondentes à base."""
         rep = self.machine_representation(value)
+        if rep["sign"] == 0:
+          # Certo (aspas simples dentro da f-string)
+            print(f"+0.{'0' * self.precision} x {self.base}^0")
+            return
+
         sign = "-" if rep["sign"] < 0 else "+"
-        print(f"{sign}{rep['mantissa']} x {self.base}^{rep['exponent']}")
+        digits_string = self._convert_mantissa_to_base_digits(rep["mantissa"])
+        print(f"{sign}0.{digits_string} x {self.base}^{rep['exponent']}")
