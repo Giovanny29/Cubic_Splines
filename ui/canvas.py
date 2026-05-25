@@ -100,15 +100,33 @@ class CartesianCanvas:
             self.drag_point = p
         else:
             wx, wy = self.screen_to_world(event.x, event.y)
+            
+            # 🛡️ TRAVA DE SEGURANÇA: Impede pontos com X muito próximo (evita h = 0)
+            if any(abs(existing_p.x - wx) < 0.1 for existing_p in self.points):
+                return 
+
             self.points.append(Point(wx, wy))
+            self.points.sort(key=lambda pt: pt.x)
+            
             self.root.event_generate("<<RebuildRequest>>")
         self.redraw()
 
     def on_drag(self, event):
         if self.drag_point:
             wx, wy = self.screen_to_world(event.x, event.y)
+            
+            # 🛡️ TRAVA DE ARRASTO: Impede que o ponto ultrapasse os vizinhos no eixo X
+            idx = self.points.index(self.drag_point)
+            if idx > 0 and wx <= self.points[idx-1].x + 0.05:
+                wx = self.points[idx-1].x + 0.05
+            if idx < len(self.points) - 1 and wx >= self.points[idx+1].x - 0.05:
+                wx = self.points[idx+1].x - 0.05
+
             self.drag_point.x = wx
             self.drag_point.y = wy
+            
+            # Recalcula em tempo real no arrasto para dar um efeito fluido excelente!
+            self.root.event_generate("<<RebuildRequest>>")
             self.redraw()
 
     def on_release(self, event):
@@ -143,9 +161,62 @@ class CartesianCanvas:
             self.canvas.create_line(0, y, self.width, y, fill="#eeeeee")
 
     def draw_axes(self):
+        """Desenha os eixos cartesianos centrais com as réguas numéricas."""
         cx, cy = self.width / 2, self.height / 2
+        
+        # Linhas principais dos eixos centrais
         self.canvas.create_line(0, cy, self.width, cy, fill="#333333", width=1)
         self.canvas.create_line(cx, 0, cx, self.height, fill="#333333", width=1)
+
+        # 💎 ADICIONADO: Adaptação dinâmica do passo numérico conforme o nível de zoom
+        step_math = 1
+        if self.scale < 25:
+            step_math = 5  # Evita encavalar números se o zoom estiver muito longe
+        elif self.scale < 50:
+            step_math = 2
+
+        # 1. Graduações e Valores Numéricos do Eixo X
+        start_math_x = int(-cx / self.scale) - 1
+        end_math_x = int((self.width - cx) / self.scale) + 1
+        
+        for val in range(start_math_x, end_math_x, step_math):
+            if val == 0: 
+                continue # Origem limpa
+            
+            # Converte a coordenada inteira matemática para a tela
+            sx, _ = self.world_to_screen(val, 0)
+            
+            # Pequeno traço indicador (Tick) no eixo horizontal
+            self.canvas.create_line(sx, cy - 3, sx, cy + 3, fill="#666666", width=1)
+            # Carimba o número abaixo do traço
+            self.canvas.create_text(
+                sx, cy + 14, 
+                text=str(val), 
+                fill="#555555", 
+                font=("Consolas", 8)
+            )
+
+        # 2. Graduações e Valores Numéricos do Eixo Y
+        start_math_y = int(-(self.height - cy) / self.scale) - 1
+        end_math_y = int(cy / self.scale) + 1
+        
+        for val in range(start_math_y, end_math_y, step_math):
+            if val == 0: 
+                continue
+                
+            # Converte a coordenada inteira matemática para a tela
+            _, sy = self.world_to_screen(0, val)
+            
+            # Pequeno traço indicador (Tick) no eixo vertical
+            self.canvas.create_line(cx - 3, sy, cx + 3, sy, fill="#666666", width=1)
+            # Carimba o número à esquerda do eixo vertical
+            self.canvas.create_text(
+                cx - 10, sy, 
+                text=str(val), 
+                fill="#555555", 
+                font=("Consolas", 8),
+                anchor="e" # Alinhamento perfeito pela direita do texto
+            )
 
     def draw_points(self):
         for p in self.points:
@@ -153,13 +224,10 @@ class CartesianCanvas:
             self.canvas.create_oval(x-5, y-5, x+5, y+5, fill="#ff4444", outline="white", width=2)
 
     def draw_spline(self):
-        # 1. Desenha Referência (Verde) se estiver no modo 0 ou 1
         if self.view_state in [0, 1]:
             self._render_curve(self.segments_reference, color="#2ca02c", width=1, dash=None)
         
-        # 2. Desenha Finita (Azul) se estiver no modo 0 ou 2
         if self.view_state in [0, 2]:
-            # Se estiver isolada (modo 2), destaca com linha mais grossa
             w = 3 if self.view_state == 2 else 2
             self._render_curve(self.segments_finite, color="#1f77b4", width=w, dash=(5, 2))
 
@@ -168,30 +236,38 @@ class CartesianCanvas:
             x_start, x_end = float(s.x0), float(s.x1)
             if x_end <= x_start: continue
 
-            res = 50 
+            res = 40  
             step = (x_end - x_start) / res
             coords = []
             
             for i in range(res + 1):
                 tx = x_start + i * step
                 try:
-                    ty = s.evaluate(tx)
+                    ty = s.evaluate(tx) 
                     sx, sy = self.world_to_screen(tx, ty)
                     coords.extend([sx, sy])
-                except: continue
+                except: 
+                    continue
 
             if len(coords) >= 4:
-                self.canvas.create_line(coords, fill=color, width=width, dash=dash, smooth=True)
+                self.canvas.create_line(coords, fill=color, width=width, dash=dash, smooth=False)
 
     def draw_hud(self):
         """Legenda dinâmica baseada no estado de visualização."""
+        # 🌟 SINCRONIZADO: Agora lê estritamente do motor numérico ativo
+        base = self.machine.base if self.machine else "?"
         prec = self.machine.precision if self.machine else "?"
         
         # Fundo do HUD
         self.canvas.create_rectangle(10, 10, 240, 70, fill="white", outline="#ccc", width=1)
         
-        # Texto da Máquina Atual
-        self.canvas.create_text(20, 25, text=f"Máquina: β=10, t={prec}", anchor="w", font=("Arial", 9, "bold"))
+        # Mostra os dados dinâmicos coletados
+        self.canvas.create_text(
+            20, 25, 
+            text=f"Máquina: β={base}, t={prec}", 
+            anchor="w", 
+            font=("Arial", 9, "bold")
+        )
         
         # Legendas das linhas
         if self.view_state in [0, 1]:

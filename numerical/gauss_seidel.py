@@ -1,11 +1,13 @@
 """
 Module: gauss_seidel.py
 Description: Implementation of the Gauss-Seidel Iterative Method for solving linear systems 
-             using both finite machine arithmetic and ideal reference arithmetic.
+             using both finite machine arithmetic and ideal reference arithmetic,
+             integrated with convergence analysis.
 """
 from decimal import Decimal
 from numerical.norms import infinity_norm
 from numerical.machine import OverflowMachineError
+from numerical.convergence import is_diagonally_dominant
 
 # =========================================================
 # GAUSS-SEIDEL COM MÁQUINA FINITA (EXPERIMENTAL)
@@ -15,25 +17,19 @@ def gauss_seidel_finite(A, b, machine, x0=None, tol=1e-6, max_iter=100):
     """
     Resolve o sistema linear Ax = b pelo método iterativo de Gauss-Seidel
     utilizando estritamente a aritmética limitada da máquina finita.
-    Atualiza as componentes do vetor solução imediatamente dentro da mesma iteração.
 
     Entrada:
         A (list[list]): Matriz de coeficientes do sistema.
         b (list): Vetor de termos independentes.
         machine (FiniteMachine): Instância da máquina virtual para processamento aritmético.
         x0 (list, opcional): Vetor de aproximação inicial. Se None, inicializa com zeros.
-        tol (float): Tolerância para o critério de parada baseada na norma do erro absoluto.
+        tol (float): Tolerância para o critério de parada baseada no erro relativo.
         max_iter (int): Número máximo de iterações permitidas.
     Saída:
-        dict: Relatório contendo:
-            - "solution" (list[Decimal]): O vetor solução aproximado obtido pela máquina.
-            - "iterations" (int): O total de iterações executadas.
-            - "converged" (bool): True se atingiu a tolerância, False caso contrário.
-            - "error" (Decimal): O erro da última iteração calculada.
-            - "status" (str): Descrição do estado final da execução.
+        dict: Relatório contendo os dados de convergência, estabilidade e a solução obtida.
     """
     if machine is None:
-        raise ValueError("FiniteMachine not provided to gauss_seidel_finite.")
+        raise ValueError("FiniteMachine não fornecida ao gauss_seidel_finite.")
 
     n = len(A)
 
@@ -41,12 +37,16 @@ def gauss_seidel_finite(A, b, machine, x0=None, tol=1e-6, max_iter=100):
     A_m = machine.matrix(A)
     b_m = machine.vector(b)
 
+    # Análise prévia de convergência baseada na aritmética da máquina
+    is_dominant = is_diagonally_dominant(A_m, machine)
+
     if x0 is None:
         x = [machine.fl(0) for _ in range(n)]
     else:
         x = machine.vector(x0)
 
     error = machine.fl(0)
+    tol_m = machine.fl(tol)
 
     for iteration in range(max_iter):
         # Guarda o estado anterior para cálculo do critério de parada
@@ -58,8 +58,8 @@ def gauss_seidel_finite(A, b, machine, x0=None, tol=1e-6, max_iter=100):
 
                 for j in range(n):
                     if i != j:
-                        # Como alteramos 'x' em tempo real, j < i usa o valor novo (k+1)
-                        # e j > i usa o valor antigo (k), respeitando Gauss-Seidel.
+                        # Substituição imediata: j < i usa o valor atualizado (k+1)
+                        # j > i usa o valor da iteração anterior (k)
                         term = machine.mul(A_m[i][j], x[j])
                         sigma = machine.add(sigma, term)
 
@@ -67,29 +67,41 @@ def gauss_seidel_finite(A, b, machine, x0=None, tol=1e-6, max_iter=100):
                 diag = A_m[i][i]
 
                 if diag == 0:
-                    raise ZeroDivisionError(f"Zero diagonal element detected at row {i} during Gauss-Seidel.")
+                    raise ZeroDivisionError(f"Elemento diagonal nulo detectado na linha {i} durante o Gauss-Seidel.")
 
                 x[i] = machine.div(numerator, diag)
 
-            # Cálculo do erro: diff = fl(x - x_old)
+            # Cálculo do vetor de diferenças absolutas: diff = fl(x - x_old)
             diff = [machine.sub(x[i], x_old[i]) for i in range(n)]
-            error = infinity_norm(diff, machine)
+            abs_error = infinity_norm(diff, machine)
+            
+            # Cálculo da norma do novo vetor para o erro relativo
+            norm_x = infinity_norm(x, machine)
 
-            # Verifica se houve estagnação numérica causada por mantissa muito curta
-            if error == 0 and iteration > 0:
+            # Cálculo do Erro Relativo na Máquina
+            if norm_x != 0:
+                error = machine.div(abs_error, norm_x)
+            else:
+                error = abs_error
+
+            # Verifica se houve estagnação numérica (mudança nula por perda de precisão)
+            if abs_error == 0 and iteration > 0:
                 return {
                     "solution": x,
                     "iterations": iteration + 1,
                     "converged": True,
+                    "diagonally_dominant": is_dominant,
                     "error": error,
-                    "status": "Stagnated (precision limit reached)"
+                    "status": "Stagnated (Precision limit reached)"
                 }
 
-            if error < tol:
+            # Critério de Parada Relativo
+            if error < tol_m:
                 return {
                     "solution": x,
                     "iterations": iteration + 1,
                     "converged": True,
+                    "diagonally_dominant": is_dominant,
                     "error": error,
                     "status": "Converged"
                 }
@@ -99,6 +111,7 @@ def gauss_seidel_finite(A, b, machine, x0=None, tol=1e-6, max_iter=100):
                 "solution": x,
                 "iterations": iteration + 1,
                 "converged": False,
+                "diagonally_dominant": is_dominant,
                 "error": Decimal("1e100"),
                 "status": "Diverged due to Machine Overflow"
             }
@@ -107,6 +120,7 @@ def gauss_seidel_finite(A, b, machine, x0=None, tol=1e-6, max_iter=100):
         "solution": x,
         "iterations": max_iter,
         "converged": False,
+        "diagonally_dominant": is_dominant,
         "error": error,
         "status": "Max iterations reached without convergence"
     }
@@ -118,19 +132,12 @@ def gauss_seidel_finite(A, b, machine, x0=None, tol=1e-6, max_iter=100):
 
 def gauss_seidel_reference(A, b, x0=None, tol=1e-10, max_iter=100):
     """
-    Resolve o sistema linear Ax = b pelo método iterativo de Gauss-Seidel
-    utilizando a aritmética de dupla precisão nativa do Python (float de 64 bits).
-    Usado como controle analítico/ideal para cálculo de erro propagado.
-
-    Entrada:
-        A (list[list]), b (list): Dados originais do sistema linear.
-        x0 (list, opcional): Vetor de aproximação inicial.
-        tol (float): Tolerância de parada.
-        max_iter (int): Limite de iterações.
-    Saída:
-        dict: Relatório com a solução ideal, número de iterações, convergência e erro final.
+    Resolve o sistema linear Ax = b pelo método de Gauss-Seidel em dupla precisão nativa (float 64-bit).
     """
     n = len(A)
+
+    # Análise prévia de convergência ideal
+    is_dominant = is_diagonally_dominant(A, machine=None)
 
     if x0 is None:
         x = [0.0 for _ in range(n)]
@@ -150,18 +157,23 @@ def gauss_seidel_reference(A, b, x0=None, tol=1e-10, max_iter=100):
                     sigma += A_f[i][j] * x[j]
 
             if A_f[i][i] == 0:
-                raise ZeroDivisionError(f"Zero diagonal element at row {i} in reference solver.")
+                raise ZeroDivisionError(f"Elemento diagonal nulo na linha {i} no solver de referência.")
 
             x[i] = (b_f[i] - sigma) / A_f[i][i]
 
+        # Erro Relativo na referência ideal
         diff = [x[i] - x_old[i] for i in range(n)]
-        error = infinity_norm(diff, machine=None)
+        abs_error = infinity_norm(diff, machine=None)
+        norm_x = infinity_norm(x, machine=None)
+        
+        error = abs_error / norm_x if norm_x != 0 else abs_error
 
         if error < tol:
             return {
                 "solution": x,
                 "iterations": iteration + 1,
                 "converged": True,
+                "diagonally_dominant": is_dominant,
                 "error": error
             }
 
@@ -169,9 +181,9 @@ def gauss_seidel_reference(A, b, x0=None, tol=1e-10, max_iter=100):
         "solution": x,
         "iterations": max_iter,
         "converged": False,
+        "diagonally_dominant": is_dominant,
         "error": error
     }
-
 
 # Aliases para compatibilidade de chamadas
 gauss_seidel = gauss_seidel_finite

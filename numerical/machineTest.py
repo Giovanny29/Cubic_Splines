@@ -1,268 +1,74 @@
-from machine import (
-    FiniteMachine,
-    RoundingMode,
-    OverflowMachineError
-)
+from decimal import Decimal
+from machine import FiniteMachine, RoundingMode
 
-
-def separator(title):
-    print("\n" + "=" * 60)
-    print(title)
+def run_tests():
+    print("=" * 60)
+    print(" INICIANDO TESTES DA FINITE MACHINE (MANTISSA CORRIGIDA)")
     print("=" * 60)
 
-
-def show_result(label, value):
-    print(f"{label}: {value}")
-
-
-def main():
-
-    # =====================================================
-    # MÁQUINA
-    # =====================================================
-
-    machine = FiniteMachine(
-        base=10,
-        precision=4,
-        exponent_min=-5,
-        exponent_max=5,
-        rounding=RoundingMode.ROUND
-    )
-
-    separator("CONFIGURAÇÃO DA MÁQUINA")
-
-    print(machine.info())
-
-    # =====================================================
-    # NORMALIZAÇÃO
-    # =====================================================
-
-    separator("NORMALIZAÇÃO")
-
-    values = [
-        12345.6789,
-        0.000012345,
-        -9876.54321,
-        3.1415926535,
-        0.999999,
-        99999.999
-    ]
-
-    for v in values:
-
-        try:
-
-            fl_value = machine.fl(v)
-
-            print(f"\nOriginal: {v}")
-            print(f"Machine : {fl_value}")
-
-            machine.print_machine_number(v)
-
-        except Exception as e:
-            print(f"\nValue: {v}")
-            print("ERROR:", e)
-
-    # =====================================================
-    # ARREDONDAMENTO VS TRUNCAMENTO
-    # =====================================================
-
-    separator("ROUND VS TRUNCATE")
-
-    round_machine = FiniteMachine(
-        base=10,
-        precision=4,
-        exponent_min=-10,
-        exponent_max=10,
-        rounding=RoundingMode.ROUND
-    )
-
-    truncate_machine = FiniteMachine(
-        base=10,
-        precision=4,
-        exponent_min=-10,
-        exponent_max=10,
-        rounding=RoundingMode.TRUNCATE
-    )
-
-    test_value = 12.98765
-
-    print("\nOriginal:", test_value)
-
-    print(
-        "Rounded :",
-        round_machine.fl(test_value)
-    )
-
-    print(
-        "Truncated:",
-        truncate_machine.fl(test_value)
-    )
-
-    # =====================================================
-    # SOMA
-    # =====================================================
-
-    separator("ADIÇÃO")
-
-    a = 1.23456
-    b = 9.87654
-
-    result = machine.add(a, b)
-
-    show_result("a", machine.fl(a))
-    show_result("b", machine.fl(b))
-    show_result("a + b", result)
-
-    # =====================================================
-    # SUBTRAÇÃO
-    # =====================================================
-
-    separator("SUBTRAÇÃO")
-
-    a = 10.0001
-    b = 9.9999
-
-    result = machine.sub(a, b)
-
-    show_result("a", machine.fl(a))
-    show_result("b", machine.fl(b))
-    show_result("a - b", result)
-
-    # =====================================================
-    # MULTIPLICAÇÃO
-    # =====================================================
-
-    separator("MULTIPLICAÇÃO")
-
-    a = 123.456
-    b = 0.78901
-
-    result = machine.mul(a, b)
-
-    show_result("a", machine.fl(a))
-    show_result("b", machine.fl(b))
-    show_result("a * b", result)
-
-    # =====================================================
-    # DIVISÃO
-    # =====================================================
-
-    separator("DIVISÃO")
-
-    a = 10
-    b = 3
-
-    result = machine.div(a, b)
-
-    show_result("a", machine.fl(a))
-    show_result("b", machine.fl(b))
-    show_result("a / b", result)
-
-    # =====================================================
-    # CANCELAMENTO NUMÉRICO
-    # =====================================================
-
-    separator("CANCELAMENTO NUMÉRICO")
-
-    a = 1234.567
-    b = 1234.566
-
-    result = machine.sub(a, b)
-
-    show_result("a", machine.fl(a))
-    show_result("b", machine.fl(b))
-    show_result("a - b", result)
-
-    # =====================================================
-    # UNDERFLOW
-    # =====================================================
-
-    separator("UNDERFLOW")
-
-    very_small = 0.000000000001
-
-    result = machine.fl(very_small)
-
-    print("Original :", very_small)
-    print("Machine  :", result)
-
-    # =====================================================
-    # OVERFLOW
-    # =====================================================
-
-    separator("OVERFLOW")
-
-    try:
-
-        huge = 999999999999999
-
-        result = machine.fl(huge)
-
-        print(result)
-
-    except OverflowMachineError as e:
-
-        print("Overflow detected!")
-        print(e)
-
-    # =====================================================
-    # BASE 2
-    # =====================================================
-
-    separator("BASE 2")
-
-    binary_machine = FiniteMachine(
-        base=2,
-        precision=5,
-        exponent_min=-10,
-        exponent_max=10,
-        rounding=RoundingMode.ROUND
-    )
-
-    values = [
-        13.625,
-        0.1,
-        255.75
-    ]
-
-    for v in values:
-
-        try:
-
-            print(f"\nOriginal: {v}")
-
-            result = binary_machine.fl(v)
-
-            print(f"Machine : {result}")
-
-            binary_machine.print_machine_number(v)
-
-        except Exception as e:
-            print("ERROR:", e)
-
-    # =====================================================
-    # TESTE EM CADEIA
-    # =====================================================
-
-    separator("PROPAGAÇÃO DE ERRO")
-
-    x = machine.fl(1)
-
-    for i in range(20):
-
-        x = machine.div(x, 3)
-
-        print(f"Iter {i+1:02d}: {x}")
-
-    # =====================================================
-    # CONTADORES
-    # =====================================================
-
-    separator("ESTATÍSTICAS")
-
-    print(machine.info())
-
+    # -----------------------------------------------------------------
+    # TESTE 1: Base 10 - Arredondamento Padrão (ROUND)
+    # -----------------------------------------------------------------
+    print("\n[TESTE 1] Base 10, 4 Dígitos, Modo ROUND")
+    m10_round = FiniteMachine(base=10, precision=4, rounding=RoundingMode.ROUND)
+    
+    # 0.12345 -> Deve arredondar para cima -> 0.1235
+    v1 = m10_round.fl(0.12345)
+    print(f"Entrada: 0.12345 | fl(x): {v1} (Esperado: 0.1235)")
+    assert v1 == Decimal('0.1235'), "Erro no arredondamento para cima (Base 10)"
+
+    # 0.12344 -> Deve arredondar para baixo -> 0.1234
+    v2 = m10_round.fl(0.12344)
+    print(f"Entrada: 0.12344 | fl(x): {v2} (Esperado: 0.1234)")
+    assert v2 == Decimal('0.1234'), "Erro no arredondamento para baixo (Base 10)"
+
+    # -----------------------------------------------------------------
+    # TESTE 2: Base 10 - Truncamento (TRUNCATE)
+    # -----------------------------------------------------------------
+    print("\n[TESTE 2] Base 10, 4 Dígitos, Modo TRUNCATE")
+    m10_trunc = FiniteMachine(base=10, precision=4, rounding=RoundingMode.TRUNCATE)
+    
+    # Mesmo com fim '5', deve cortar seco -> 0.1234
+    v3 = m10_trunc.fl(0.1234999)
+    print(f"Entrada: 0.1234999 | fl(x): {v3} (Esperado: 0.1234)")
+    assert v3 == Decimal('0.1234'), "Erro no truncamento (Base 10)"
+
+    # -----------------------------------------------------------------
+    # TESTE 3: Base 2 (Binária) - O Teste de Fogo do Arredondamento
+    # -----------------------------------------------------------------
+    print("\n[TESTE 3] Base 2, 3 Dígitos de Mantissa, Modo ROUND")
+    m2_round = FiniteMachine(base=2, precision=3, rounding=RoundingMode.ROUND)
+    
+    # Em base 2 com t=3:
+    # 0.625 em decimal é exatamente 0.101 em binário (já tem 3 dígitos significativos)
+    # 0.6875 em decimal é exatamente 0.1011 em binário (4 dígitos). 
+    # O quarto dígito é '1' (que é >= b/2, ou seja, >= 1 em binário), então deve arredondar para cima!
+    # 0.1011 + 0.0001 = 0.110 em binário, que equivale a 0.75 em decimal.
+    
+    v_base2 = m2_round.fl(0.6875)
+    print(f"Entrada Decimal: 0.6875 (Binário: 0.1011)")
+    print(f"Resultado fl(x) em Decimal: {v_base2} (Esperado: 0.75, que é Binário: 0.110)")
+    
+    # Exibição visual dos dígitos na base 2
+    print("Representação interna na máquina:")
+    m2_round.print_machine_number(0.6875)
+    
+    assert v_base2 == Decimal('0.75'), "Erro no arredondamento multibase (Base 2)"
+
+    # -----------------------------------------------------------------
+    # TESTE 4: Estouro de Mantissa por Arredondamento (0.99999 -> 1.0)
+    # -----------------------------------------------------------------
+    print("\n[TESTE 4] Renormalização após arredondamento (Estouro de Mantissa)")
+    m10_edge = FiniteMachine(base=10, precision=3, rounding=RoundingMode.ROUND)
+    
+    # 0.9996 -> Arredonda para 1.000 -> Transforma em 0.100 x 10^1
+    v4 = m10_edge.fl(0.9996)
+    print(f"Entrada: 0.9996 | fl(x): {v4} (Esperado: 1.0)")
+    assert v4 == Decimal('1'), "Erro na renormalização pós-arredondamento"
+    
+    print("\n" + "=" * 60)
+    print(" 🎉 TODOS OS TESTES PASSARAM COM 100% DE SUCESSO!")
+    print("=" * 60)
 
 if __name__ == "__main__":
-    main()
+    run_tests()

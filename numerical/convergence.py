@@ -2,6 +2,7 @@
 Module: convergence.py
 Description: Utilities for convergence analysis of iterative linear system solvers.
 """
+from decimal import Decimal
 
 def is_diagonally_dominant(A, machine=None):
     """
@@ -20,25 +21,35 @@ def is_diagonally_dominant(A, machine=None):
     n = len(A)
 
     for i in range(n):
-        # Captura o elemento da diagonal principal
+        # =====================================================
+        # FLUXO COM MÁQUINA FINITA
+        # =====================================================
         if machine:
             diagonal = machine.abs(A[i][i])
-            row_sum = machine.fl(0)
-        else:
-            diagonal = abs(A[i][i])
-            row_sum = 0
+            row_sum = Decimal('0')  # Base limpa para o acumulador da máquina
 
-        # Soma os elementos das colunas j (onde j != i)
-        for j in range(n):
-            if i != j:
-                if machine:
+            for j in range(n):
+                if i != j:
                     element_abs = machine.abs(A[i][j])
                     row_sum = machine.add(row_sum, element_abs)
-                else:
-                    row_sum += abs(A[i][j])
 
-        # Verificação da dominância estrita
-        # Se o elemento da diagonal for menor ou igual à soma do restante da linha, falha.
+        # =====================================================
+        # FLUXO SEM MÁQUINA (Referência Ideal)
+        # =====================================================
+        else:
+            # Garante consistência convertendo para Decimal de alta precisão
+            diagonal = Decimal(str(A[i][i])).copy_abs()
+            row_sum = Decimal('0')
+
+            for j in range(n):
+                if i != j:
+                    row_sum += Decimal(str(A[i][j])).copy_abs()
+
+        # =====================================================
+        # VERIFICAÇÃO DA DOMINÂNCIA ESTRITA
+        # =====================================================
+        # Funciona perfeitamente para ambos os fluxos, pois ambos os retornos
+        # agora usam comparadores numéricos limpos do ecossistema Decimal.
         if diagonal <= row_sum:
             return False
 

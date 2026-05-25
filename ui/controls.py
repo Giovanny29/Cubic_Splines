@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox  # 🛡️ Adicionado para dar feedback visual de erros
 
 class Controls:
     def __init__(
@@ -11,6 +12,7 @@ class Controls:
         on_update_machine,
         on_switch_solver
     ):
+        self.on_build = on_build  # Guardado para permitir auto-recalculo de UX
         self.on_update_machine = on_update_machine
         self.on_switch_solver = on_switch_solver
         self.on_toggle_mode = on_toggle_mode # Callback para mudar a visão no Canvas
@@ -36,7 +38,7 @@ class Controls:
         )
         self.btn_build.pack(side=tk.LEFT, padx=5)
 
-        # NOVO: Botão de Destaque (Toggle View)
+        # Botão de Destaque (Toggle View)
         self.view_state = 0  # 0: Ambas, 1: Só Ideal, 2: Só Máquina
         self.view_labels = ["Ver: Ambas", "Ver: Só Ideal", "Ver: Só Máquina"]
         
@@ -73,10 +75,8 @@ class Controls:
             relief="flat", padx=10
         ).pack(side=tk.RIGHT, padx=10)
 
-        # Entrada de Precisão (t)
-        self.precision = tk.Spinbox(self.frame, from_=1, to=16, width=3)
-        self.precision.delete(0, "end")
-        self.precision.insert(0, "6")
+        # Entrada de Precisão (t) - state="readonly" impede o usuário de quebrar o campo digitando texto
+        self.precision = tk.Spinbox(self.frame, from_=1, to=16, width=3, state="readonly")
         self.precision.pack(side=tk.RIGHT, padx=5)
         tk.Label(self.frame, text="Precisão (t):", bg="#2d2d2d", fg="white").pack(side=tk.RIGHT)
 
@@ -103,19 +103,25 @@ class Controls:
             precision = int(self.precision.get())
 
             if base < 2:
-                print("[ERRO] A base deve ser >= 2")
+                messagebox.showerror("Erro de Parâmetro", "A base do sistema numérico deve ser >= 2.")
                 return
             if precision < 1:
-                print("[ERRO] A precisão deve ser >= 1")
+                messagebox.showerror("Erro de Parâmetro", "A precisão da mantissa (t) deve ser >= 1.")
                 return
 
             self.on_update_machine(base, precision)
+            
+            # 🔥 Recalcula automaticamente a curva para atualizar o desenho com a nova aritmética
+            self.on_build()
 
         except ValueError:
-            print("[ERRO] Base e Precisão devem ser números inteiros.")
+            messagebox.showerror("Erro de Input", "Base e Precisão devem ser números inteiros válidos.")
         except Exception as e:
-            print(f"[MACHINE ERROR] {e}")
+            messagebox.showerror("Erro Crítico", f"Falha ao instanciar máquina: {e}")
 
     def apply_solver(self):
-        """Notifica a Main sobre a mudança de algoritmo (Jacobi/Gauss)."""
+        """Notifica a Main sobre a mudança de algoritmo e força o recálculo imediato."""
         self.on_switch_solver(self.solver_var.get())
+        
+        # 🔥 Atualiza a curva em tempo real na tela ao alternar o Radiobutton
+        self.on_build()

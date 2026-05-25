@@ -17,16 +17,18 @@ def infinity_norm(vector, machine=None):
         machine (FiniteMachine, opcional): Instância da máquina finita para calcular 
                                            o valor absoluto sob precisão limitada.
     Saída:
-        Decimal/float: O valor da norma infinito do vetor. Retorna 0 se o vetor estiver vazio.
+        Decimal: O valor da norma infinito do vetor. Retorna Decimal(0) se o vetor estiver vazio.
     """
     if vector is None or len(vector) == 0:
-        return 0
+        return Decimal(0)
 
     # =====================================================
-    # CASO SEM MÁQUINA (referência ideal / float nativo)
+    # CASO SEM MÁQUINA (referência ideal / alta precisão)
     # =====================================================
     if machine is None:
-        return max(abs(float(x)) for x in vector)
+        # Mantém o retorno como Decimal para evitar erros de TypeError (Decimal vs float)
+        # nas comparações de convergência do sistema.
+        return max(Decimal(str(x)).copy_abs() for x in vector)
 
     # =====================================================
     # CASO COM MÁQUINA FINITA
